@@ -53,13 +53,18 @@ const ShopPage = () => {
 
       if (categoriesError) throw categoriesError;
 
-      const formattedCategories = [
-        { key: "all", label: "All Products" },
-        ...(categoriesData?.map(cat => ({
-          key: cat.name.toLowerCase(),
-          label: cat.name
-        })) || [])
-      ];
+      // inside fetchData after fetching categoriesData
+const formattedCategories = [
+  { key: "all", label: "All Products", id: "all" },
+  ...(categoriesData?.map(cat => ({
+    key: cat.name.toLowerCase(),
+    label: cat.name,
+    id: cat.id   // include uuid
+  })) || [])
+];
+
+setCategories(formattedCategories);
+
 
       setCategories(formattedCategories);
     } catch (error) {
@@ -124,7 +129,7 @@ const ShopPage = () => {
       price: 2999,
       discountPrice: 1999,
       image: "https://images.unsplash.com/photo-1601925794239-8a5a6e0ca2c3?w=400&h=400&fit=crop",
-      category: "kurtas"
+      category: "kurtis"
     },
     {
       id: "8",
@@ -132,14 +137,14 @@ const ShopPage = () => {
       price: 5999,
       discountPrice: 4499,
       image: "https://images.unsplash.com/photo-1606819999029-d73de02e2507?w=400&h=400&fit=crop",
-      category: "kurtas"
+      category: "kurtis"
     },
     {
       id: "9",
       name: "Casual Straight Kurta",
       price: 1999,
       image: "https://images.unsplash.com/photo-1617627143750-d86bc21e3629?w=400&h=400&fit=crop",
-      category: "kurtas"
+      category: "kurtis"
     }
   ];
 
@@ -201,19 +206,28 @@ const ShopPage = () => {
               Discover our complete collection of traditional wear
             </p>
             
-            {/* Category Buttons */}
-            <div className="flex flex-wrap justify-center gap-4">
-              {categories.map((category) => (
-                <Button
-                  key={category.key}
-                  variant={selectedCategory === category.key ? "default" : "outline"}
-                  onClick={() => setSelectedCategory(category.key)}
-                  className="transition-all duration-300"
-                >
-                  {category.label}
-                </Button>
-              ))}
-            </div>
+{/* Category Buttons */}
+<div className="flex flex-wrap justify-center gap-4">
+  {categories.map((cat) => (
+    <Button
+      key={cat.id || cat.key}
+      variant={selectedCategory === cat.id ? "default" : "outline"}
+      onClick={() => {
+  if (category.id && category.id !== "all") {
+    navigate(`/category/${category.id}`); // ✅ Go by ID
+  } else {
+    setSelectedCategory("all");
+  }
+}}
+
+      className="transition-all duration-300"
+    >
+      {cat.label}
+    </Button>
+  ))}
+</div>
+
+
           </div>
         </div>
 

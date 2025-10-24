@@ -12,24 +12,32 @@ import type { User } from "@supabase/supabase-js";
 
 const WishlistPage = () => {
   const [user, setUser] = useState<User | null>(null);
-  const { wishlistItems, isWishlisted, removeFromWishlist, loading } = useWishlist();
+  const { wishlistItems, isWishlisted, removeFromWishlist, fetchWishlist, loading } = useWishlist();
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // ✅ Check authentication
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      
-      if (!user) {
-        navigate("/auth/login");
-        return;
-      }
+      if (!user) navigate("/auth/login");
     };
-
     checkAuth();
   }, [navigate]);
+
+  // ✅ Automatically refresh wishlist when updated
+  useEffect(() => {
+    const handleWishlistUpdate = () => {
+      console.log("🔁 Wishlist updated, refetching...");
+      fetchWishlist?.(); // safe call in case function is available
+    };
+    window.addEventListener("wishlist-updated", handleWishlistUpdate);
+    return () => {
+      window.removeEventListener("wishlist-updated", handleWishlistUpdate);
+    };
+  }, [fetchWishlist]);
 
   const handleAddToCart = (productId: string) => {
     const product = wishlistItems.find(p => p.id === productId);
@@ -44,6 +52,8 @@ const WishlistPage = () => {
 
   const handleToggleWishlist = async (productId: string) => {
     await removeFromWishlist(productId);
+    // 👇 Trigger global refresh event so wishlist updates instantly
+    window.dispatchEvent(new Event("wishlist-updated"));
   };
 
   const handleBuyNow = (productId: string) => {
@@ -70,7 +80,6 @@ const WishlistPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
       <div className="pt-16 container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
@@ -84,7 +93,7 @@ const WishlistPage = () => {
         {wishlistItems.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-2xl text-muted-foreground mb-6">Your wishlist is empty 💔</p>
-            <Button onClick={() => navigate("/shop")} size="lg">
+            <Button onClick={() => navigate("/")} size="lg">
               Start Shopping
             </Button>
           </div>
@@ -103,7 +112,6 @@ const WishlistPage = () => {
           </div>
         )}
       </div>
-      
       <Footer />
     </div>
   );

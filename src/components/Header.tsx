@@ -19,24 +19,24 @@ const Header = () => {
   const { getTotalItems } = useCart();
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
     return () => subscription.unsubscribe();
   }, []);
 
   const navigation = [
     { name: "Home", href: "/" },
-    { name: "Sarees", href: "/category/sarees" },
-    { name: "Lehengas", href: "/category/lehengas" },
-    { name: "Kurtas", href: "/category/kurtas" },
+    { name: "Sarees", href: "/category/Sarees" },
+    { name: "Lehengas", href: "/category/Lehengas" },
+    { name: "Kurtas", href: "/category/Kurtas" },
     { name: "New Arrivals", href: "/new-arrivals" },
     { name: "Sale", href: "/sale" },
   ];
@@ -83,18 +83,21 @@ const Header = () => {
           <div className="flex items-center space-x-3">
             {/* Search */}
             <div className="relative">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="hidden sm:flex"
                 onClick={() => setSearchOpen(!searchOpen)}
               >
                 <Search className="h-5 w-5" />
               </Button>
-              
+
               {searchOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 z-50">
-                  <form onSubmit={handleSearch} className="flex gap-2 bg-background border rounded-lg p-2 shadow-lg">
+                  <form
+                    onSubmit={handleSearch}
+                    className="flex gap-2 bg-background border rounded-lg p-2 shadow-lg"
+                  >
                     <Input
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}

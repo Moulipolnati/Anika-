@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
+
+// ✅ Pages
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
@@ -35,12 +37,15 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              {/* ✅ Put admin route ABOVE the category route */}
+              <Route path="/admin" element={<AdminPage />} />
+
+              {/* ✅ All other standard routes */}
               <Route path="/" element={<Index />} />
               <Route path="/auth/login" element={<AuthPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/admin" element={<AdminPage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/search" element={<SearchPage />} />
@@ -52,8 +57,11 @@ const App = () => (
               <Route path="/size-guide" element={<SizeGuidePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
+
+              {/* ✅ Keep category route near the bottom */}
               <Route path="/category/:category" element={<CategoryPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+              {/* ✅ Catch-all 404 route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
@@ -64,3 +72,4 @@ const App = () => (
 );
 
 export default App;
+

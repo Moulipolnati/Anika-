@@ -1,7 +1,9 @@
-import { Heart, ShoppingBag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Heart, ShoppingCart } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductCardProps {
   id: string;
@@ -10,10 +12,6 @@ interface ProductCardProps {
   discountPrice?: number;
   image: string;
   category: string;
-  isWishlisted?: boolean;
-  onAddToCart?: (id: string) => void;
-  onToggleWishlist?: (id: string) => void;
-  onBuyNow?: (id: string) => void;
 }
 
 const ProductCard = ({
@@ -23,124 +21,182 @@ const ProductCard = ({
   discountPrice,
   image,
   category,
-  isWishlisted = false,
-  onAddToCart,
-  onToggleWishlist,
-  onBuyNow,
 }: ProductCardProps) => {
-  const discountPercentage = discountPrice
-    ? Math.round(((price - discountPrice) / price) * 100)
-    : 0;
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-    }).format(amount);
+  // ✅ Load logged-in user_id from Supabase session
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      const uid = data?.session?.user?.id || localStorage.getItem("user_id");
+      if (uid) {
+        setUserId(uid);
+        localStorage.setItem("user_id", uid); // Save permanently
+      }
+    };
+    fetchUser();
+  }, []);
+
+  // ✅ Wishlist toggle
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!userId) {
+      toast({
+        title: "Please login",
+        description: "You need to login to manage your wishlist.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      if (isWishlisted) {
+        await supabase
+          .from("wishlist")
+          .delete()
+          .eq("user_id", userId)
+          .eq("product_id", id);
+        setIsWishlisted(false);
+        toast({ title: "Removed from wishlist" });
+      } else {
+        await supabase.from("wishlist").insert([
+          {
+            user_id: userId,
+            product_id: id,
+          },
+        ]);
+        setIsWishlisted(true);
+        toast({ title: "Added to wishlist" });
+      }
+    } catch (error) {
+      console.error("Error updating wishlist:", error);
+      toast({
+        title: "Wishlist update failed",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const getCategoryFallback = (cat: string) => {
-    const categoryLower = cat.toLowerCase();
-    if (categoryLower.includes('saree')) return 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400&h=400&fit=crop';
-    if (categoryLower.includes('lehenga')) return 'https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?w=400&h=400&fit=crop';
-    if (categoryLower.includes('kurta')) return 'https://images.unsplash.com/photo-1601925794239-8a5a6e0ca2c3?w=400&h=400&fit=crop';
-    if (categoryLower.includes('jewelry') || categoryLower.includes('accessories')) return 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=400&fit=crop';
-    return 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400&h=400&fit=crop';
+  // ✅ Add to Cart
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!userId) {
+      toast({
+        title: "Please login",
+        description: "You need to login to add items to cart.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log("🛒 Adding to cart:", { userId, product_id: id });
+
+      // ✅ Check if product already exists in the user's cart
+      const { data: existingCart } = await supabase
+        .from("cart")
+        .select("quantity")
+        .eq("user_id", userId)
+        .eq("product_id", id)
+        .maybeSingle();
+
+      if (existingCart) {
+        await supabase
+          .from("cart")
+          .update({ quantity: existingCart.quantity + 1 })
+          .eq("user_id", userId)
+          .eq("product_id", id);
+      } else {
+        await supabase
+          .from("cart")
+          .insert([{ user_id: userId, product_id: id, quantity: 1 }]);
+      }
+
+      toast({ title: "Product added to cart" });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast({
+        title: "Failed to add product to cart",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
-    <Card className="group cursor-pointer overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-      <div className="relative overflow-hidden">
+    <div
+      onClick={() => navigate(`/product/${id}`)} // <-- FIXED: template string with backticks!
+      className="group relative border rounded-2xl overflow-hidden shadow hover:shadow-lg transition-all duration-300 cursor-pointer bg-white"
+    >
+      {/* Product Image */}
+      <div className="relative">
         <img
-          src={image}
+          src={image || "https://via.placeholder.com/400"}
           alt={name}
-          className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => {
-            e.currentTarget.src = getCategoryFallback(category);
-          }}
+          className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        
-        {/* Discount Badge */}
-        {discountPercentage > 0 && (
-          <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
-            {discountPercentage}% OFF
-          </Badge>
-        )}
-
         {/* Wishlist Button */}
-        <Button
-          variant="outline"
-          size="icon"
-          className={`absolute top-3 right-3 bg-white/80 backdrop-blur-sm border-white/50 hover:bg-white transition-all duration-200 z-10 ${
-            isWishlisted ? "text-primary bg-primary/10" : "text-foreground"
+        <button
+          onClick={handleWishlistToggle}
+          className={`absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white shadow ${
+            isWishlisted ? "text-red-500" : "text-gray-600"
           }`}
-          onClick={(e) => {
-            e.preventDefault();
-            onToggleWishlist?.(id);
-          }}
         >
-          <Heart className={`h-4 w-4 sm:h-5 sm:w-5 ${isWishlisted ? "fill-current" : ""}`} />
-        </Button>
-
-        {/* Quick Actions - Shows on Hover */}
-        <div className="absolute inset-x-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 space-y-2">
-          <Button
-            className="w-full bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary transition-all duration-200"
-            onClick={(e) => {
-              e.preventDefault();
-              onAddToCart?.(id);
-            }}
-          >
-            <ShoppingBag className="h-4 w-4 mr-2" />
-            Add to Cart
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full bg-white/90 backdrop-blur-sm border-white/50 hover:bg-white transition-all duration-200"
-            onClick={(e) => {
-              e.preventDefault();
-              onBuyNow?.(id);
-            }}
-          >
-            Buy Now
-          </Button>
-        </div>
+          <Heart
+            className={`h-5 w-5 ${
+              isWishlisted ? "fill-red-500" : "group-hover:scale-110"
+            }`}
+          />
+        </button>
       </div>
 
-      <CardContent className="p-4">
-        <div className="space-y-2">
-          {/* Category */}
-          <p className="text-sm text-muted-foreground uppercase tracking-wide">
-            {category}
-          </p>
+      {/* Product Details */}
+      <div className="p-4">
+        <h3 className="font-semibold text-lg truncate">{name}</h3>
+        <p className="text-sm text-gray-500 mb-2">{category}</p>
 
-          {/* Product Name */}
-          <h3 className="font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-            {name}
-          </h3>
-
-          {/* Price */}
-          <div className="flex items-center space-x-2">
-            {discountPrice ? (
-              <>
-                <span className="text-lg font-bold text-primary">
-                  {formatPrice(discountPrice)}
-                </span>
-                <span className="text-sm text-muted-foreground line-through">
-                  {formatPrice(price)}
-                </span>
-              </>
-            ) : (
-              <span className="text-lg font-bold text-foreground">
-                {formatPrice(price)}
-              </span>
-            )}
-          </div>
+        <div className="flex items-center gap-2 mb-3">
+          {discountPrice ? (
+            <>
+              <span className="text-lg font-bold text-primary">₹{discountPrice}</span>
+              <span className="text-sm text-gray-400 line-through">₹{price}</span>
+            </>
+          ) : (
+            <span className="text-lg font-bold">₹{price}</span>
+          )}
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Add to Cart Button */}
+        <Button
+          onClick={handleAddToCart}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <ShoppingCart className="h-4 w-4" /> Add to Cart
+        </Button>
+      </div>
+    </div>
   );
 };
 
 export default ProductCard;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
